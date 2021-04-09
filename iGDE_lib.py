@@ -1,6 +1,9 @@
-
+#Library containing globals for entire iGDE monitoring processing framework
+####################################################################################################
 #Module imports
 from  geeViz.changeDetectionLib import *
+import threading,time,glob
+from google.oauth2.credentials import Credentials
 Map.clearMap()
 ####################################################################################################
 #Define user parameters:
@@ -13,14 +16,161 @@ California = ee.Feature(ee.FeatureCollection('TIGER/2016/States')\
             .convexHull(10000)\
             .buffer(10000)\
             .geometry()
+studyArea = California
 
+# CRS- must be provided.  
+# Common crs codes: Web mercator is EPSG:4326, USGS Albers is EPSG:5070, 
+# WGS84 UTM N hemisphere is EPSG:326+ zone number (zone 12 N would be EPSG:32612) and S hemisphere is EPSG:327+ zone number
+crs = 'EPSG:5070'
 
+# Specify transform if scale is null and snapping to known grid is needed
+transform = [30,0,-2361915.0,0,-30,3177735.0]
+
+# Specify scale if transform is null
+scale = None
+
+#Specify image collections
 daymetCollection = 'projects/igde-work/raster-data/DAYMET-Collection'
 compositeCollection = 'projects/igde-work/raster-data/composite-collection'
+ltCollection = 'projects/igde-work/raster-data/LandTrendr-collection'
 
-trainingStartYear = 1985
-trainingEndYear = 2018
+#Specify parameters to filter iGDEs with
+minDGW = 0
+maxDGW = 20
+dgwNullValue = -999
+minGDESize = 900
 
-applyStartYear = 1985
-applyEndYear = 2019
+#Specify training and model application years
+startTrainingYear = 1985
+endTrainingYear = 2018
+startApplyYear = 1985
+endApplyYear = 2019
+
+#Bring in training (igdes w well obs) and apply igdes (all igdes)
+trainingGDEs = ee.FeatureCollection('projects/igde-work/igde-data/iGDE_AnnualDepth_renamed_oct2018')
+applyGDEs = ee.FeatureCollection('projects/igde-work/igde-data/i02_IndicatorsofGDE_Vegetation_v0_5_3_updated_macroclasses')
+
+applyGDEs = applyGDEs.filter(ee.Filter.gte('Shape_Area',minGDESize))
+
+applyGDEs = applyGDEs.map(lambda f:ee.Feature(f).dissolve(100))
+
+
+###################################################################################################
+def spatialJoin(f1,f2,properties):
+	#Define a spatial filter as geometries that intersect.
+	spatialFilter = ee.Filter.intersects(
+    leftField='.geo',\
+    rightField='.geo',\
+    maxError=10\
+  	)
+  
+	#Define a save all join.
+	saveAllJoin = ee.Join.saveAll(\
+    	matchesKey= 'matches'\
+  	)
+  
+ 	#Apply the join.
+	intersectJoined = saveAllJoin.apply(f1, f2, spatialFilter)
+
+	def joinWrapper(f):
+		props = ee.Feature(ee.List(f.get('matches')).get(0))
+		f = ee.Feature(f).copyProperties(props,properties)
+		propNames = ee.List(f.propertyNames())
+		propNames = propNames.removeAll(['matches'])
+		return ee.Feature(f).select(propNames)
+	out = intersectJoined.map(joinWrapper)
+	return out
+def joinFeatureCollectionsReverse(primary,secondary,fieldName):
+	#Use an equals filter to specify how the collections match.
+	f = ee.Filter.equals(\
+    leftField=fieldName,\
+    rightField=fieldName\
+  	)
+  
+	#Define the join.
+	innerJoin = ee.Join.inner('primary', 'secondary')
+  
+	#Apply the join.
+	joined = innerJoin.apply(primary, secondary, f)
+
+	def wrapper(f):
+		p = ee.Feature(f.get('primary'))
+		s = ee.Feature(f.get('secondary'))
+		return s.copyProperties(p)
+	joined = joined.map(wrapper)
+	return joined
+
+
+def addStrata(applyGDEs):
+	#applyGDEs = applyGDEs.limit(200)
+	groups = ee.Dictionary(applyGDEs.aggregate_histogram('Macrogroup'))
+	names = ee.List(groups.keys())
+	numbers = ee.List.sequence(1,names.length())
+
+	applyGDEs = applyGDEs.map(lambda f: f.set('Macrogroup_Number',f.get('Macrogroup')))
+	applyGDEs = applyGDEs.remap(names,numbers,'Macrogroup_Number')
+  
+	huc8 = ee.FeatureCollection("USGS/WBD/2017/HUC08").filterBounds(studyArea)
+	biome_ecoregion = ee.FeatureCollection('projects/igde-work/igde-data/ecoregion_biome_ca_2020').filterBounds(studyArea)
+	biome_ecoregion = biome_ecoregion.map(lambda f: f.select(['BIOME','EAA_ID'],['Biome_Number','Ecoregion_Number']))
+
+	hydroRegion = ee.FeatureCollection('projects/igde-work/igde-data/Hydrologic_Regions')
+	hydroRegion = hydroRegion.map(lambda f: f.select(['OBJECTID'],['Hydroregion_Number']))
+
+	huc8 = huc8.map(lambda f: f.set('huc8_int',ee.Number.parse(f.get('huc8'))))
+	applyGDEs = spatialJoin(applyGDEs,huc8,['huc8'])
+	applyGDEs = spatialJoin(applyGDEs,biome_ecoregion,['Biome_Number','Ecoregion_Number'])
+	applyGDEs = spatialJoin(applyGDEs,hydroRegion,['Hydroregion_Number'])
+
+	# print(applyGDEs.aggregate_histogram('Hydroregion_Number').keys().length().getInfo())
+	return applyGDEs
+
+# Map.addLayer(applyGDEs,{'strokeColor':'00F','layerType':'geeVectorImage'}, 'Apply iGDEs')
+applyGDEs = addStrata(applyGDEs)
+Map.addLayer(applyGDEs,{'strokeColor':'00F','layerType':'geeVectorImage'}, 'Apply iGDEs w strata',False)
+
+
+trainingGDEs = trainingGDEs.filter(ee.Filter.gte('Shape_Area',900))
+trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains('Depth_Str','Shallow: perf.'))
+trainingGDEs = trainingGDEs.map(lambda f: f.set('unique_id',ee.String(f.get('POLYGON_ID')).cat('_').cat(ee.String(f.get('STN_ID')))))
+Map.addLayer(trainingGDEs,{'strokeColor':'00F','layerType':'geeVectorImage'}, 'Training iGDEs w strata',False)
+# Map.view()
+###################################################################################################
+token_dir = os.path.dirname(ee.oauth.get_credentials_path())
+tokens = glob.glob(os.path.join(token_dir,'*'))
+###################################################################################################
+#Function to initialize from specified token
+#Does not un-initialize any existing initializations, but will point to this set of credentials    
+def initializeFromToken(token_path_name):
+    print('Initializing GEE using:',token_path_name)
+    refresh_token = json.load(open(token_path_name))['refresh_token']
+    c = Credentials(
+          None,
+          refresh_token=refresh_token,
+          token_uri=ee.oauth.TOKEN_URI,
+          client_id=ee.oauth.CLIENT_ID,
+          client_secret=ee.oauth.CLIENT_SECRET,
+          scopes=ee.oauth.SCOPES)
+    ee.Initialize(c)
+###############################################################
+def limitThreads(limit):
+  while threading.activeCount() > limit:
+    time.sleep(1)
+    print(threading.activeCount(),'threads running')
+###############################################################
+def new_set_maker(in_list,threads):
+
+    print (threads)
+    out_sets =[]
+    for t in range(threads):
+        out_sets.append([])
+    i =0
+    for il in in_list:
+
+        out_sets[i].append(il)
+        i += 1
+        if i >= threads:
+            i = 0
+    return out_sets
+###################################################################################################
 

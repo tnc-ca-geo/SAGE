@@ -1,5 +1,5 @@
 # iGDE Monitor
-> Method to monitor health of groundwater-dependent ecosystems 
+> Remote monitoring of groundwater-dependent ecosystems in shallow aquifers
 * Contains all methods outlined in Biswas et al 2021 (forthcoming)
 
 ## Primary POCs

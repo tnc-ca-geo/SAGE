@@ -1,5 +1,5 @@
-#Example of how to get Landsat data using the getImagesLib and view outputs using the Python visualization tools
-#Acquires Landsat data and then adds them to the viewer
+#Script to acquire annual Landsat composites using the getImagesLib and view outputs using the Python visualization tools
+#Acquires Landsat, masks clouds and cloud shadows, composites, and then adds them to the viewer
 ####################################################################################################
 from iGDE_lib import *
 ####################################################################################################
@@ -158,16 +158,7 @@ outputName = 'Landsat'
 exportPathRoot = compositeCollection
 
 
-# CRS- must be provided.  
-# Common crs codes: Web mercator is EPSG:4326, USGS Albers is EPSG:5070, 
-# WGS84 UTM N hemisphere is EPSG:326+ zone number (zone 12 N would be EPSG:32612) and S hemisphere is EPSG:327+ zone number
-crs = 'EPSG:5070'
 
-# Specify transform if scale is null and snapping to known grid is needed
-transform = [30,0,-2361915.0,0,-30,3177735.0]
-
-# Specify scale if transform is null
-scale = None
 ####################################################################################################
 #End user parameters
 ####################################################################################################

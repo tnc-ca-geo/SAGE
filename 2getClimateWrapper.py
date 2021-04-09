@@ -1,5 +1,5 @@
 #Script to get DAYMET climate date mean composites using the getImagesLib and view outputs using the Python visualization tools
-#Acquires DAYMET data and then adds them to the viewer
+#Acquires annual DAYMET composites and then adds them to the viewer
 ####################################################################################################
 from iGDE_lib import *
 ####################################################################################################
@@ -7,7 +7,7 @@ from iGDE_lib import *
 
 # Specify study area: Study area
 # Can be a featureCollection, feature, or geometry
-studyArea = california
+studyArea = California
 
 #Specify collection to use (V3 or V4)
 collectionName = 'NASA/ORNL/DAYMET_V4'
@@ -38,16 +38,7 @@ exportComposites = True
 exportBands = ['prcp.*','srad.*','swe.*','tmax.*','tmin.*','vp.*']
 
 
-# CRS- must be provided.  
-# Common crs codes: Web mercator is EPSG:4326, USGS Albers is EPSG:5070, 
-# WGS84 UTM N hemisphere is EPSG:326+ zone number (zone 12 N would be EPSG:32612) and S hemisphere is EPSG:327+ zone number
-crs = 'EPSG:5070'
 
-# Specify transform if scale is null and snapping to known grid is needed
-transform = [30,0,-2361915.0,0,-30,3177735.0]
-
-# Specify scale if transform is null
-scale = None
 ####################################################################################################
 #End user parameters
 ####################################################################################################
@@ -67,6 +58,7 @@ def getClimateWrapper(collectionName,studyArea,startYear,endYear,startJulian,end
   if 'args' in args.keys():
     del args['args']
   print(args)
+
   #Prepare dates
   #Wrap the dates if needed
   wrapOffset = 0
@@ -77,34 +69,35 @@ def getClimateWrapper(collectionName,studyArea,startYear,endYear,startJulian,end
   endDate = ee.Date.fromYMD(endYear,1,1).advance(endJulian-1+wrapOffset,'day')
   print('Start and end dates:', startDate.format('YYYY-MM-dd').getInfo(), endDate.format('YYYY-MM-dd').getInfo())
   print('Julian days are:',startJulian,endJulian)
+
   #Get climate data
   c = ee.ImageCollection(collectionName)\
            .filterBounds(studyArea.bounds())\
            .filterDate(startDate,endDate)\
            .filter(ee.Filter.calendarRange(startJulian,endJulian))
+
+  #Set to appropriate resampling method
   c = c.map(lambda img: img.resample('bicubic'))
   Map.addLayer(c,{},'Raw Climate')
+
   #Create composite time series
   ts = compositeTimeSeries(c,startYear,endYear,startJulian,endJulian,timebuffer,weights,None,compositingReducer)
   ts = ts.map(lambda i : i.float())
+
+  #Export composite collection
   if exportComposites:
     #Set up export bands if not specified
     if exportBands == None:
       exportBands = ee.List(ee.Image(ts.first()).bandNames())
 
-  
-    #Export collection
     exportCollection(exportPathRoot,collectionName.split('/')[2],studyArea, crs,transform,scale,ts,startYear,endYear,startJulian,endJulian,compositingReducer,timebuffer,exportBands)
-     
-
   
   return ts
 ####################################################################################################
 #Call on wrapper
 ts = getClimateWrapper(collectionName,studyArea,startYear,endYear,startJulian,endJulian,timebuffer,weights,compositingReducer,exportComposites,exportPathRoot,crs,transform,scale,exportBands)
 
-Map.addLayer(ee.ImageCollection(ts),{},'TS Climate',False)
-
+Map.addLayer(ee.ImageCollection(ts),{},'Annual Climate Time Series',False)
 ####################################################################################################
 #Load the study region
 Map.addLayer(studyArea, {'strokeColor': '0000FF'}, "Study Area", True)
