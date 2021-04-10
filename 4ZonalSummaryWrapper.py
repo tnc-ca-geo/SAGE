@@ -10,8 +10,8 @@ outputTrainingTableName = 'dgwRFModelingTrainingTable3_{}_{}'.format(startTraini
 outputTrainingTablePath = outputTrainingTableDir + '/'+outputTrainingTableName
 
 outputApplyTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Apply-Tables'
-outputApplyTableName = 'dgwRFModelingApplyTable4_'
-outputApplyTablePath = outputApplyTableDir + '/'+outputApplyTableName
+outputApplyTableName = 'dgwRFModelingApplyTable4'
+
 
 def getLT(ltCollection):
   c = ee.ImageCollection(ltCollection)
@@ -20,7 +20,8 @@ def getLT(ltCollection):
   for id in ids:
     startYear = int(id.split('_')[-2])
     endYear = int(id.split('_')[-1])
-    indexName = id.split('_')[-3]
+    indexName = id.split('_{}_'.format(startYear))[0].split('Stack_')[1]
+    
     ltStack = c.filter(ee.Filter.eq('system:index',id)).first()
     fit = simpleLTFit(ltStack,startYear,endYear,indexName).select(['.*_fitted','.*_mag','.*_diff'])
 
@@ -28,13 +29,15 @@ def getLT(ltCollection):
       outC = fit
     else:
       outC = ee.ImageCollection(joinCollections(outC,fit))
-  print(outC.size().getInfo())
-  print(outC.first().bandNames().getInfo())
+  # print(outC.size().getInfo())
+  # print(outC.first().bandNames().getInfo())
   Map.addLayer(outC,{},'all fits',True)
-  Map.view()
+  # Map.view()
+  return outC
 
 
-getLT(ltCollection)
+durFitMagSlope = getLT(ltCollection)
+###############################################################################
 # var durFitMagSlope = rfLib.getLT();
 # // var strataRaster = rfLib.getStrataRaster();
 # var trainingGDEs = rfLib.trainingGDEs;
@@ -78,22 +81,34 @@ getLT(ltCollection)
 #   Export.table.toAsset(dgwLTJoined, outputTrainingTableName,outputTrainingTablePath);
 # }
 # getTrainingTable()
-# function exportApplyTables(){
-#   var applyTableExtracted = ee.List.sequence(startApplyYear,endApplyYear).getInfo().map(function(yr){
+###############################################################################
+def exportApplyTables(years):
+  
+  for yr in years:
+    print(yr)
 #         // yr = ee.Number(yr).int16();
         
-#         var durFitMagSlopeYr = ee.Image(durFitMagSlope.filter(ee.Filter.calendarRange(yr,yr,'year')).first());
-#         durFitMagSlopeYr = durFitMagSlopeYr;
+    durFitMagSlopeYr = ee.Image(durFitMagSlope.filter(ee.Filter.calendarRange(yr,yr,'year')).first())
+   
         
-#         var igdesYr = durFitMagSlopeYr.reduceRegions(applyGDEs, ee.Reducer.mean(),null,'EPSG:5070',[30,0,-2361915.0,0,-30,3177735.0],4);
+    igdesYr = durFitMagSlopeYr.reduceRegions(applyGDEs, ee.Reducer.mean(),scale,crs,transform,4)
+
 #         // igdesYr = getImagesLib.joinFeatureCollections(igdesYr,strataZonalMode,'POLYGON_ID');
 #         // print(applyGDEs.size())
         
-#         igdesYr = igdesYr.map(function(f){return f.set('year',yr)});
+    igdesYr = igdesYr.map(lambda f:f.set('year',yr))
 #         // igdesYr = igdesYr.filter(ee.Filter.notNull(rasterFields));
   
-#         var yrEnding =+yr.toString();
-#         Export.table.toAsset(igdesYr, outputApplyTableName+ yrEnding,outputApplyTablePath + yrEnding);
+    yrEnding = '_{}'.format(yr)
+    outputName = outputApplyTableName+ yrEnding
+    t = ee.batch.Export.table.toAsset(igdesYr, outputName,outputApplyTableDir + '/'+outputName)
+    print('Exporting:',outputName)
+    t.start()
+    # t = ee.FeatureCollection(outputApplyTableDir + '/'+outputName)
+    # print(t.size().getInfo())
+    # Map.addLayer(t,{'strokeColor':'00F','layerType':'geeVectorImage'},outputName)
+
+    # Export.table.toAsset(igdesYr, outputApplyTableName+ yrEnding,outputApplyTablePath + yrEnding);
 #         return igdesYr;
 #      });
 #       // applyTableExtracted = ee.FeatureCollection(applyTableExtracted).flatten();
@@ -101,3 +116,15 @@ getLT(ltCollection)
 #   // print(applyTableExtracted)
 #   // Export.table.toAsset(dgwLTJoined, outputApplyTableName,outputApplyTablePath);
 # }
+
+def batchExportApplyTables():
+  sets = new_set_maker(range(startApplyYear,endApplyYear+1),len(tokens))
+  for i,years in enumerate(sets):
+    initializeFromToken(tokens[i])
+    print(ee.String('Token works!').getInfo())
+    print(years)
+    # exportApplyTables(years)
+    
+    trackTasks()
+  # Map.view()
+batchExportApplyTables()

@@ -3,6 +3,7 @@
 #Module imports
 from  geeViz.changeDetectionLib import *
 import threading,time,glob
+from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials
 Map.clearMap()
 ####################################################################################################
@@ -45,6 +46,7 @@ startTrainingYear = 1985
 endTrainingYear = 2018
 startApplyYear = 1985
 endApplyYear = 2019
+
 
 #Bring in training (igdes w well obs) and apply igdes (all igdes)
 trainingGDEs = ee.FeatureCollection('projects/igde-work/igde-data/iGDE_AnnualDepth_renamed_oct2018')
@@ -172,5 +174,31 @@ def new_set_maker(in_list,threads):
         if i >= threads:
             i = 0
     return out_sets
+
+def trackTasks(credential_path = None):
+	if credential_path != None:initializeFromToken(tokens[i])
+
+	tasks = ee.data.getTaskList()
+	ready = [i for i in tasks if i['state'] == 'READY']
+	running = [i for i in tasks if i['state'] == 'RUNNING']
+	failed = [i for i in tasks if i['state'] == 'FAILED']
+	completed = [i for i in tasks if i['state'] == 'COMPLETED']
+	running_names = [[str(i['description']),str(timedelta(seconds = int(((time.time()*1000)-int(i['start_timestamp_ms']))/1000)))] for i in running]
+	failed_names = [[str(i['description']),str(i['error_message'])] for i in failed]
+	completed_names = [str(i['description']) for i in completed]
+	now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+	print(len(ready),'tasks ready',now)
+	print(len(running),'tasks running',now)
+	# print(len(failed),'tasks failed',now)
+	# print(len(completed),'tasks completed',now)
+	print('Running names:')
+	for rn in running_names:print(rn)
+	# for fn in failed_names:print(fn)
+	# for cn in completed_names:print('Completed '+cn)
+
+	print()
+	print()
+	time.sleep(10)
+	
 ###################################################################################################
 
