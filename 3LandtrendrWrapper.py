@@ -133,11 +133,7 @@ if __name__ == '__main__':
     initializeFromToken(tokens[i])
     print(ee.String('Token works!').getInfo())
     batchLTExport(s,tokens[i])
-    # tt = threading.Thread(target = batchLTExport, args = (s,tokens[i]))
-    # tt.start()
-    # time.sleep(0.1)
-
-  # limitThreads(1)
+    trackTasks()
   ####################################################################################################
 
   #Load the study region

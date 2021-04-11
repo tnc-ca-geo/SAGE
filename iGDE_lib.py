@@ -35,10 +35,11 @@ daymetCollection = 'projects/igde-work/raster-data/DAYMET-Collection'
 compositeCollection = 'projects/igde-work/raster-data/composite-collection'
 ltCollection = 'projects/igde-work/raster-data/LandTrendr-collection'
 
+
 #Specify parameters to filter iGDEs with
 minDGW = 0
 maxDGW = 20
-dgwNullValue = -999
+dgwNullValue = -999.0
 minGDESize = 900
 
 #Specify training and model application years
@@ -47,14 +48,30 @@ endTrainingYear = 2018
 startApplyYear = 1985
 endApplyYear = 2019
 
+#Specify table locations
+outputTrainingTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Training-Tables';
+outputTrainingTableName = 'dgwRFModelingTrainingTable4_{}_{}'.format(startTrainingYear,endTrainingYear)
+outputTrainingTablePath = outputTrainingTableDir + '/'+outputTrainingTableName
+
+outputApplyTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Apply-Tables'
+outputApplyTableName = 'dgwRFModelingApplyTable4'
+
+outputPredTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Results-Tables'
+
+#Choose which bands from LandTrendr to summarize
+#Options are '.*_fitted','.*_mag','.*_diff','.*_dur','.*_slope'
+ltBands = ['.*_fitted','.*_mag','.*_diff']
 
 #Bring in training (igdes w well obs) and apply igdes (all igdes)
 trainingGDEs = ee.FeatureCollection('projects/igde-work/igde-data/iGDE_AnnualDepth_renamed_oct2018')
 applyGDEs = ee.FeatureCollection('projects/igde-work/igde-data/i02_IndicatorsofGDE_Vegetation_v0_5_3_updated_macroclasses')
 
+#Filter igdes
 applyGDEs = applyGDEs.filter(ee.Filter.gte('Shape_Area',minGDESize))
-
 applyGDEs = applyGDEs.map(lambda f:ee.Feature(f).dissolve(100))
+
+trainingGDEs = trainingGDEs.filter(ee.Filter.gte('Shape_Area',minGDESize))
+trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains('Depth_Str','Shallow: perf.'))
 
 
 ###################################################################################################
@@ -82,6 +99,20 @@ def spatialJoin(f1,f2,properties):
 		return ee.Feature(f).select(propNames)
 	out = intersectJoined.map(joinWrapper)
 	return out
+def innerOuterJoin(primary,secondary,matchFieldName,propertyName,reducer):
+	def wrapper(f):
+		f = ee.Feature(f)
+		name = f.get(matchFieldName)
+		secondaryT = secondary.filter(ee.Filter.eq(matchFieldName,name))
+		matchesN = secondaryT.size()
+		values = ee.Array(secondaryT.toList(10000000).map(lambda f: ee.Feature(f).get(propertyName))).reduce(reducer,[0])
+		values = ee.Number(values.toList().get(0))
+		values = ee.Algorithms.If(matchesN.gt(0),values,-9999)
+		f = f.setMulti({'matchesReduced':values,'matchesN':matchesN})
+		return f
+	joined = primary.map(lambda f:wrapper(f))
+	return joined;
+
 def joinFeatureCollectionsReverse(primary,secondary,fieldName):
 	#Use an equals filter to specify how the collections match.
 	f = ee.Filter.equals(\
@@ -136,6 +167,7 @@ trainingGDEs = trainingGDEs.filter(ee.Filter.gte('Shape_Area',900))
 trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains('Depth_Str','Shallow: perf.'))
 trainingGDEs = trainingGDEs.map(lambda f: f.set('unique_id',ee.String(f.get('POLYGON_ID')).cat('_').cat(ee.String(f.get('STN_ID')))))
 Map.addLayer(trainingGDEs,{'strokeColor':'00F','layerType':'geeVectorImage'}, 'Training iGDEs w strata',False)
+
 # Map.view()
 ###################################################################################################
 token_dir = os.path.dirname(ee.oauth.get_credentials_path())
