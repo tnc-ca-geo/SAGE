@@ -2,9 +2,10 @@
 ####################################################################################################
 #Module imports
 from  geeViz.changeDetectionLib import *
-import threading,time,glob
+import threading,time,glob,json
 from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials
+import matplotlib.pyplot as plt
 Map.clearMap()
 ####################################################################################################
 #Define user parameters:
@@ -57,6 +58,9 @@ outputApplyTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Apply-Table
 outputApplyTableName = 'dgwRFModelingApplyTable4'
 
 outputPredTableDir = 'projects/igde-work/raster-zonal-stats-data/RF-Results-Tables'
+outputPredTableNameStart = 'dgwRFModelingPredTable4'
+outputPredDriveDir = 'rf-pred-results-tables-2021-redo2'
+outputLocalRFModelInfoDir = r'C:\TNC\manuscript_2020\iGDE_Monitor_Outputs'
 
 #Choose which bands from LandTrendr to summarize
 #Options are '.*_fitted','.*_mag','.*_diff','.*_dur','.*_slope'
