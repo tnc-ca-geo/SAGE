@@ -37,9 +37,11 @@ runNumber = 6
 
 #Runs of models to iterate across
 #Specify a descriptive name and then the selectors of the predictor fields
-runs = [['climate-spectral-strata',['.*_fitted','.*_mag','.*_diff','huc8','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']]]#,\
+runs = [['climate-spectral-strata',['.*_fitted','.*_mag','huc8','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],
+# ['climate',['.*mean_LT_fitted','.*mean_LT_mag']],
+]
 # ['climate-strata',['.*mean_LT_fitted','.*mean_LT_mag','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],\
-# ['climate',['.*mean_LT_fitted','.*mean_LT_mag']],\
+
 # ['climate-spectral-strata-fitted-only',['.*_fitted','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],\
 # ['climate-spectral-strata-mag-only',['.*_mag','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],\
 # ['climate-spectral',['.*_fitted','.*_mag']],\
@@ -74,12 +76,13 @@ def getRFModelInfo(rfModel,outputInfo):
     modelInfo = json.load(f)
   print('Model info:',modelInfo)
   importance = modelInfo['importance']
-
+  oob = round(modelInfo['outOfBagErrorEstimate'],2)
   #This line taken from: https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
   importance = {k: v for k, v in sorted(importance.items(), key=lambda item: item[1])}
 
   fig = plt.bar(importance.keys(),importance.values())
-  plt.xticks(rotation = 60)
+  plt.xticks(rotation = 60, fontsize = 10,ha = 'right')
+  plt.title('Variable Importance | OOB Error: {}'.format(oob))
   # fig.savefig(os.path.splitext(outputInfo)[0] + '_importance.png')
   plt.show()
 ##################################################################
@@ -135,7 +138,7 @@ def batchApplyRFModel(rfModel,trainingTable,predictorFields,runName):
     initializeFromToken(tokens[i])
     print(ee.String('Token works!').getInfo())
     print(years)
-    applyRFModel(rfModel,years,trainingTable,predictorFields,runName)
+    # applyRFModel(rfModel,years,trainingTable,predictorFields,runName)
     trackTasks()
 ####################################################################################################
 #Function to export predicted dgw tables
@@ -171,20 +174,20 @@ def downloadModeledOutputs(removeGeometry = True):
 ####################################################################################################
 #Function calls
 #Iterate across each run and fit, summarize, and apply model
-# for run in runs:
+for run in runs:
 
   #Get predictor field names
-  # predictorFields = ee.Feature(trainingTable.select(run[1]).first()).propertyNames().remove('system:index').getInfo()
+  predictorFields = ee.Feature(trainingTable.select(run[1]).first()).propertyNames().remove('system:index').getInfo()
 
   #Fit model
-  # rfModel  = fitRFModel(trainingTable,predictorFields,run[0])
+  rfModel  = fitRFModel(trainingTable,predictorFields,run[0])
 
   #Get model info
-  # getRFModelInfo(rfModel,os.path.join(outputLocalRFModelInfoDir,'dgwRFModelInfo-{}.json'.format(run[0])))
+  getRFModelInfo(rfModel,os.path.join(outputLocalRFModelInfoDir,'dgwRFModelInfo-{}.json'.format(run[0])))
 
   #Apply and export model
-  # batchApplyRFModel(rfModel,trainingTable,predictorFields,run[0])
+  batchApplyRFModel(rfModel,trainingTable,predictorFields,run[0])
 
 #Once the predictions are all exported, export them to Drive
-downloadModeledOutputs()
+# downloadModeledOutputs()
 ####################################################################################################
