@@ -28,7 +28,7 @@ from iGDE_lib import *
 #Define user parameters:
 
 #Number of trees in RF model
-nTrees =90
+nTrees = 90
 
 #Which iteration (can just set to 1)
 runNumber = 6
@@ -37,7 +37,7 @@ runNumber = 6
 
 #Runs of models to iterate across
 #Specify a descriptive name and then the selectors of the predictor fields
-runs = [['climate-spectral-strata',['.*_fitted','.*_mag','huc8','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],
+runs = [[runname,predictors],
 # ['climate',['.*mean_LT_fitted','.*mean_LT_mag']],
 ]
 # ['climate-strata',['.*mean_LT_fitted','.*mean_LT_mag','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number']],\
@@ -61,17 +61,18 @@ def fitRFModel(trainingTable,predictorFields,runName):
   rf = ee.Classifier.smileRandomForest(nTrees)
   rf = rf.setOutputMode('REGRESSION')
   trainingTable = trainingTable.filter(ee.Filter.notNull(predictorFields))
-  trained = rf.train(trainingTable, 'dgw', predictorFields);
+  trained = rf.train(trainingTable, 'dgw', predictorFields)
+  pdb.set_trace()
   return trained
 #################################################################################################### 
 #Function to get information about fitted model
 def getRFModelInfo(rfModel,outputInfo):
-  if not os.path.exists(outputInfo):
-    modelInfo = rfModel.explain().getInfo()
-    
-    o = open(outputInfo,'w')
-    o.write(json.dumps(modelInfo))
-    o.close()
+  #if not os.path.exists(outputInfo): # LSC commented this out because it was reading old results and not writing or printing the actual new results, with no indication.
+  modelInfo = rfModel.explain().getInfo()
+  
+  o = open(outputInfo,'w')
+  o.write(json.dumps(modelInfo))
+  o.close()
   with open(outputInfo) as f:
     modelInfo = json.load(f)
   print('Model info:',modelInfo)
@@ -138,7 +139,7 @@ def batchApplyRFModel(rfModel,trainingTable,predictorFields,runName):
     initializeFromToken(tokens[i])
     print(ee.String('Token works!').getInfo())
     print(years)
-    # applyRFModel(rfModel,years,trainingTable,predictorFields,runName)
+    applyRFModel(rfModel,years,trainingTable,predictorFields,runName)
     trackTasks()
 ####################################################################################################
 #Function to export predicted dgw tables
@@ -176,18 +177,18 @@ def downloadModeledOutputs(removeGeometry = True):
 #Iterate across each run and fit, summarize, and apply model
 for run in runs:
 
-  #Get predictor field names
+  #Get predictor field namesss
   predictorFields = ee.Feature(trainingTable.select(run[1]).first()).propertyNames().remove('system:index').getInfo()
 
   #Fit model
   rfModel  = fitRFModel(trainingTable,predictorFields,run[0])
 
   #Get model info
-  getRFModelInfo(rfModel,os.path.join(outputLocalRFModelInfoDir,'dgwRFModelInfo-{}.json'.format(run[0])))
+  #getRFModelInfo(rfModel,os.path.join(outputLocalRFModelInfoDir,'dgwRFModelInfo-{}.json'.format(run[0])))
 
   #Apply and export model
-  batchApplyRFModel(rfModel,trainingTable,predictorFields,run[0])
+  #batchApplyRFModel(rfModel,trainingTable,predictorFields,run[0])
 
 #Once the predictions are all exported, export them to Drive
-# downloadModeledOutputs()
+downloadModeledOutputs()
 ####################################################################################################

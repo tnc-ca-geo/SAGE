@@ -71,7 +71,7 @@ def exportApplyTables(years,durFitMagSlope):
 
     #Export table
     yrEnding = '_{}'.format(yr)
-    outputName = outputApplyTableName+ yrEnding
+    outputName = outputApplyTableName + yrEnding
     t = ee.batch.Export.table.toAsset(igdesYr, outputName,outputApplyTableDir + '/'+outputName)
     print('Exporting:',outputName)
     t.start()
@@ -85,6 +85,40 @@ def batchExportApplyTables(startApplyYear,endApplyYear,durFitMagSlope):
     print(years)
     exportApplyTables(years,durFitMagSlope)
     trackTasks()
+
+####################################################################################################
+# Trying to add this in addStrata() makes it fail, so I am doing it after even though that is not great form.
+# Ideally this would happen in exportApplyTables() -> addStrata()
+def addMXStatus(outputApplyTableDir, originalApplyTableName, newApplyTableName, years):
+  for yr in years:
+    print('Modeling:',yr)
+
+    #Bring in apply table
+    applyTrainingTableYr = ee.FeatureCollection('{}/{}_{}'.format(outputApplyTableDir,originalApplyTableName,yr))
+
+    # Add MXStatus
+    mxStatus = ee.FeatureCollection('projects/igde-work/igde-data/iGDE_MXstatus').select(['POLYGON_ID','MXStatus'])
+    applyTrainingTableYr = joinFeatureCollectionsReverse(mxStatus, applyTrainingTableYr, 'POLYGON_ID')
+
+    #Export table
+    yrEnding = '_{}'.format(yr)
+    outputName = newApplyTableName + yrEnding
+    t = ee.batch.Export.table.toAsset(applyTrainingTableYr, outputName, outputApplyTableDir + '/' + outputName)
+    print('Exporting:',outputName)
+    t.start()
+  return applyTrainingTableYr
+
+####################################################################################################
+#Wrapper function to export apply tables for a set of years with a set of credentials
+def batchExportMXStatus(startApplyYear,endApplyYear,outputApplyTableDir, originalApplyTableName, newApplyTableName):
+  sets = new_set_maker(range(startApplyYear,endApplyYear+1),len(tokens))
+  for i,years in enumerate(sets):
+    initializeFromToken(tokens[i])
+    print(ee.String('Token works!').getInfo())
+    print(years)
+    addMXStatus(outputApplyTableDir, originalApplyTableName, newApplyTableName, years)
+    trackTasks()
+
 ####################################################################################################  
 def getTrainingTable(startTrainingYear,endTrainingYear,dgwNullValue = -999,maxDGW = 20,minDGW = 0):
   years = range(startTrainingYear,endTrainingYear+1)
@@ -130,10 +164,13 @@ def getTrainingTable(startTrainingYear,endTrainingYear,dgwNullValue = -999,maxDG
 #durFitMagSlope = getLT(ltCollection,ltBands)
 
 #First, export model apply tables
-# batchExportApplyTables(startApplyYear,endApplyYear,durFitMagSlope)
+#batchExportApplyTables(startApplyYear,endApplyYear,durFitMagSlope)
+
+#Add MXStatus to apply tables
+#batchExportMXStatus(startApplyYear,endApplyYear,outputApplyTableDir, 'dgwRFModelingApplyTable4', 'dgwRFModelingApplyTable5')
 
 #Once apply tables are finished exporting, export model training table
-# getTrainingTable(startTrainingYear,endTrainingYear,dgwNullValue,maxDGW,minDGW)
+getTrainingTable(startTrainingYear,endTrainingYear,dgwNullValue,maxDGW,minDGW)
 
 #View map
 # Map.view()
