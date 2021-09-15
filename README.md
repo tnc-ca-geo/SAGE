@@ -1,6 +1,6 @@
 # iGDE Monitor
 > Remote monitoring of groundwater-dependent ecosystems in shallow aquifers
-* Contains all methods outlined in Biswas et al 2021 (forthcoming)
+* Contains all methods outlined in Rohde et al 2021 (forthcoming)
 
 ## Primary POCs
 * Primary technical contacts
