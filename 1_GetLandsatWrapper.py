@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2021 Ian Housman
+Copyright (c) 2022 Ian Housman and Leah Campbell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,30 +23,26 @@ SOFTWARE.
 """
 #Script to acquire annual Landsat composites using the getImagesLib and view outputs using the Python visualization tools
 #Acquires Landsat, masks clouds and cloud shadows, composites, and then adds them to the viewer
+
 ####################################################################################################
-from iGDE_lib import *
+
+import SAGE_Initialize as sage
+from geeViz import getImagesLib, taskManagerLib, assetManagerLib
+from geeViz.geeView import *
+
 ####################################################################################################
+
 #Define user parameters:
 
-# Specify study area: Study area
-# Can be a featureCollection, feature, or geometry
-studyArea = California
+# Options defined in SAGE_Initialize:
+# Start and end year 
+# Julian day range 
+# Study Area
+# CRS, transform and scale
+# Export image collection name
+# Whether to export composites or visualize them in geeView
 
-# Update the startJulian and endJulian variables to indicate your seasonal 
-# constraints. This supports wrapping for tropics and southern hemisphere.
-# If using wrapping and the majority of the days occur in the second year, the system:time_start will default 
-# to June 1 of that year.Otherwise, all system:time_starts will default to June 1 of the given year
-# startJulian: Starting Julian date 
-# endJulian: Ending Julian date
-startJulian = 152
-endJulian = 273
-
-# Specify start and end years for all analyses
-# More than a 3 year span should be provided for time series methods to work 
-# well. If providing pre-computed stats for cloudScore and TDOM, this does not 
-# matter
-startYear = 2020
-endYear = 2020
+#--------The Following Options Are Default Landsat Compositing Methods and Do Not Need to Be Changed-----------
 
 # Specify an annual buffer to include imagery from the same season 
 # timeframe from the prior and following year. timeBuffer = 1 will result 
@@ -154,11 +150,11 @@ resampleMethod = 'bicubic'
 # These have been pre-computed for all CONUS for Landsat and Setinel 2 (separately)
 # and are appropriate to use for any time period within the growing season
 # The cloudScore offset is generally some lower percentile of cloudScores on a pixel-wise basis
-preComputedCloudScoreOffset = getPrecomputedCloudScoreOffsets(cloudScorePctl)['landsat']
+preComputedCloudScoreOffset = getImagesLib.getPrecomputedCloudScoreOffsets(cloudScorePctl)['landsat']
 
 # The TDOM stats are the mean and standard deviations of the two IR bands used in TDOM
 # By default, TDOM uses the nir and swir1 bands
-preComputedTDOMStats = getPrecomputedTDOMStats()
+preComputedTDOMStats = getImagesLib.getPrecomputedTDOMStats()
 preComputedTDOMIRMean = preComputedTDOMStats['landsat']['mean']
 preComputedTDOMIRStdDev = preComputedTDOMStats['landsat']['stdDev']
 
@@ -169,51 +165,79 @@ preComputedTDOMIRStdDev = preComputedTDOMStats['landsat']['stdDev']
 correctIllumination = False;
 correctScale = 250 #Choose a scale to reduce on- 250 generally works well
 
-# Export params
-# Whether to export composites
-exportComposites = False
-
 # Set up Names for the export
 outputName = 'Landsat'
 
-# Provide location composites will be exported to
-# This should be an asset folder, or more ideally, an asset imageCollection
-exportPathRoot = compositeCollection
+
+####################################################################################################
+#                        End User Parameters
+####################################################################################################
 
 
 ####################################################################################################
-#End user parameters
+#                     Start Function Calls
 ####################################################################################################
-####################################################################################################
-####################################################################################################
-#Start function calls
-####################################################################################################
-####################################################################################################
+if not ee.data.getInfo(sage.compositeCollection):
+  print('Creating ' + sage.compositeCollection)
+  ee.data.createAsset({'type': 'ImageCollection'}, sage.compositeCollection)
+  assetManagerLib.updateACL(sage.compositeCollection, all_users_can_read = True)
+
 #Call on master wrapper function to get Landat scenes and composites
-lsAndTs = getLandsatWrapper(studyArea,startYear,endYear,startJulian,endJulian,\
-  timebuffer,weights,compositingMethod,\
-  toaOrSR,includeSLCOffL7,defringeL5,applyCloudScore,applyFmaskCloudMask,applyTDOM,\
-  applyFmaskCloudShadowMask,applyFmaskSnowMask,\
-  cloudScoreThresh,performCloudScoreOffset,cloudScorePctl,\
-  zScoreThresh,shadowSumThresh,\
-  contractPixels,dilatePixels,\
-  correctIllumination,correctScale,\
-  exportComposites,outputName,exportPathRoot,crs,transform,scale,resampleMethod,
-  preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev)
+lsAndTs = getImagesLib.getLandsatWrapper(**{
+  'studyArea': sage.studyArea,
+  'startYear': sage.landsatStartYear,
+  'endYear': sage.landsatEndYear,
+  'startJulian': sage.startJulian,
+  'endJulian': sage.endJulian,
+  'timebuffer': timebuffer,
+  'weights': weights,
+  'compositingMethod': compositingMethod,
+  'toaOrSR': toaOrSR,
+  'includeSLCOffL7': includeSLCOffL7,
+  'defringeL5': defringeL5,
+  'applyCloudScore': applyCloudScore,
+  'applyFmaskCloudMask': applyFmaskCloudMask,
+  'applyTDOM': applyTDOM,
+  'applyFmaskCloudShadowMask': applyFmaskCloudShadowMask,
+  'applyFmaskSnowMask': applyFmaskSnowMask,
+  'cloudScoreThresh': cloudScoreThresh,
+  'performCloudScoreOffset': performCloudScoreOffset,
+  'cloudScorePctl': cloudScorePctl,
+  'zScoreThresh': zScoreThresh,
+  'shadowSumThresh': shadowSumThresh,
+  'contractPixels': contractPixels,
+  'dilatePixels': dilatePixels,
+  'correctIllumination': correctIllumination,
+  'correctScale': correctScale,
+  'exportComposites': sage.exportLandsat,
+  'outputName': outputName,
+  'exportPathRoot': sage.compositeCollection,
+  'crs': sage.crs,
+  'transform': sage.transform,
+  'scale': sage.scale,
+  'resampleMethod': resampleMethod,
+  'preComputedCloudScoreOffset': preComputedCloudScoreOffset,
+  'preComputedTDOMIRMean': preComputedTDOMIRMean,
+  'preComputedTDOMIRStdDev': preComputedTDOMIRStdDev})
+
+####################################################################################################
+#             Visualize in geeView() if Selected
+####################################################################################################
+if sage.viewLandsat:
+  #Separate into scenes and composites
+  processedScenes = lsAndTs['processedScenes']
+  processedComposites = lsAndTs['processedComposites']
+
+  Map.addLayer(processedComposites.select(['NDVI','NBR']), {'addToLegend':'false'}, 'Time Series (NBR and NDVI)', False)
+  for year in range(sage.landsatStartYear + timebuffer, sage.landsatEndYear + 1 - timebuffer):
+       t = processedComposites.filter(ee.Filter.calendarRange(year,year,'year')).mosaic()
+       Map.addLayer(t.float(), getImagesLib.vizParamsFalse, str(year), False)
+
+  #Load the study region
+  Map.addLayer(sage.studyArea, {'strokeColor': '0000FF'}, "Study Area", True)
+  Map.centerObject(sage.studyArea)
+  Map.view()
+else:
+  taskManagerLib.trackTasks()
 
 
-#Separate into scenes and composites for subsequent analysis
-processedScenes = lsAndTs['processedScenes']
-processedComposites = lsAndTs['processedComposites']
-
-# Map.addLayer(processedComposites.select(['NDVI','NBR']),{'addToLegend':'false'},'Time Series (NBR and NDVI)',False)
-for year in range(startYear + timebuffer      ,endYear + 1 - timebuffer ):
-     t = processedComposites.filter(ee.Filter.calendarRange(year,year,'year')).mosaic()
-     Map.addLayer(t.float(),vizParamsFalse,str(year),'False')
-####################################################################################################
-#Load the study region
-Map.addLayer(studyArea, {'strokeColor': '0000FF'}, "Study Area", True)
-Map.centerObject(studyArea)
-####################################################################################################
-####################################################################################################
-Map.view()
