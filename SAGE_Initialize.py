@@ -196,12 +196,15 @@ landtrendr_run_params = { \
 #-------------------------------------------------
 #				Training and Apply Data Options
 #-------------------------------------------------
+# 
+
 #Specify parameters to filter GDEs with
 minDGW = 0 # Minimum depth to groundwater
 maxDGW = 20 # Maximum depth to groundwater
 dgwNullValue = -999.0 # How are null depth to groundwater values saved in the GDE polygons?
+
 minGDESize = 900 # Minimum size of GDE polygon (m2)
-minGDEAttribute = 'Shape_Area' # Name of the area (m2) attribute in the GDE polygons
+gdeSizeAttribute = 'Shape_Area' # Name of the area (m2) attribute in the GDE polygons
 
 # SAGE is built to be applied on shallow wells only. We filter out any well that is not a shallow perf. well. The attribute name for this in the California dataset is "Depth_Str",
 # and we filter to include only "Shallow: perf." wells.
@@ -225,6 +228,30 @@ applyTablesUseMultiCredentials = False
 # Options are '.*_fitted','.*_mag','.*_diff','.*_dur','.*_slope'
 ltBands = ['.*_fitted','.*_mag','.*_diff']
 
+# Here you can list any additional predictor layers/ strata that you want to add to your GDEs.
+# Any layer should be uploaded to GEE.
+# These layers are separated by format (raster vs. vector) below.
+# Each entry in the list should be a dictionary with the format:
+# {assetName: 'Full path to asset',
+#  assetAttributes: 'Name(s) of the attributes (if vector) or band name (if raster). Should be list format even if there is only one.',
+#  gdeAttributes: 'What to call these attributes in the GDE (can be the same as assetAttribute). Should be list format even if there is only one.'}
+rasterStrataToAdd = []
+vectorStrataToAdd = [\
+	{'assetName': 'projects/ee-contour-tnc/assets/sage/input-data/Static-Predictor-Layers/Ecoregion_Biome_CA_2020',
+		'assetAttributes': ['BIOME','EAA_ID'],
+		'gdeAttributes': ['Biome_Number','Ecoregion_Number']},
+	{'assetName': 'projects/ee-contour-tnc/assets/sage/input-data/Static-Predictor-Layers/Hydrologic_Regions',
+		'assetAttributes': ['OBJECTID'],
+		'gdeAttributes': ['Hydroregion_Number']},
+	{'assetName': 'projects/ee-contour-tnc/assets/sage/input-data/Static-Predictor-Layers/CA_Bulletin_118_Groundwater_Basins',
+		'assetAttributes': ['OBJECTID'],
+		'gdeAttributes': ['Groundwater_Basin_ID']},
+	{'assetName': 'USGS/WBD/2017/HUC08',
+		'assetAttributes': ['huc8'],
+		'gdeAttributes': ['HUC08']},
+]
+
+
 #--------------------Training Table (5_TrainingTableExporter.py)------------------------
 
 viewTrainingTable = False
@@ -236,12 +263,15 @@ viewTrainingTable = False
 #--------------------Modeling Options (6_ModelFitApply.py)------------------------
 
 # Which properties to use as predictors in the model
-# These should all be property names that are added to each GDE using the addStrata() function below.
+# Aside from the LandTrendr properties (e.g., .*_fitted'), these should all be property names that are added to each GDE 
+# using the rasterStrataToAdd and vectorStrataToAdd variables above,
+# or are already properties in the apply GDE collection 
 # '.*_fitted' and '.*_mag' refer to the fitted values and magnitude of change from LandTrendr segments of both Landsat and Daymet
-# Other possible LandTrendr outputs include: '.*_fitted','.*_mag','.*_diff','.*_dur','.*_slope', but any option you choose must be also be in ltBands above.
+# Other possible LandTrendr outputs include: '.*_fitted','.*_mag','.*_diff','.*_dur','.*_slope',
+# **but any option you choose must be also be in the ltBands variable above**.
 # 'huc8','Ecoregion_Number', and 'Biome_Number' are automatically added for any GDE in the US.
 # 'Macrogroup_Number' and 'Hydroregion_Number' are from California-specific datasets (macrogroup was added to the California set of GDEs)
-predictors = ['.*_fitted','.*_mag','HUC08','Ecoregion_Number','Biome_Number','Macrogroup_Number','Hydroregion_Number'] 
+predictors = ['.*_fitted','.*_mag','HUC08','Ecoregion_Number','Biome_Number','Macrogroup','Hydroregion_Number'] 
 
 # Runs of models to iterate across
 # Specify a descriptive name and then the selectors of the predictor fields
@@ -273,8 +303,36 @@ randomForestParameters = {
 # Really the only reason to keep them is if you anticipate re-importing the table into GEE
 removeGeometry = True
 
+# If there are other strata that you want to keep for analysis that were not included as predictor variables, you can add them in here. 
+# This will not necessarily be used.
+# These should be in the same format as rasterStrataToAdd and vectorStrataToAdd, above in the Apply Tables section
+exportRasterStrataToAdd = []
+exportVectorStrataToAdd = []
+# example format:
+# exportVectorStrataToAdd = [\
+# 	{'assetName': 'projects/ee-contour-tnc/assets/sage/input-data/Static-Predictor-Layers/CA_Bulletin_118_Groundwater_Basins',
+# 		'assetAttributes': ['OBJECTID'],
+# 		'gdeAttributes': ['Groundwater_Basin_ID']},
+# ]
 
+#--------------------Summarize Trends (8_TrendSummaries.py)------------------------
+#Directory containing exported modeled DGW tables
+table_dir = '/Users/leahcampbell/home/contour/tnc/gdepulse/sage_methods/sage-test/rf-prediction-tables'
 
+#Directory for output pickles and csv tables to go
+summary_table_dir = '/Users/leahcampbell/home/contour/tnc/gdepulse/sage_methods/sage-test'
+
+# Whether to show a couple example linear fit plots using plt.show()
+showExamplePlots = True
+
+# These are start and end year pairs for time periods within which we evaluate trends.
+year_sets =[[2016,2021]]   #[[1985,2019],[1985,2002],[2003,2019]] #
+
+# Formatting for the final output table. 
+# Specify which columns to keep from the original table
+keep_columns = ['POLYGON_ID','matchesN','matchesReduced','Hydroregion_Number','Groundwater_Basin_ID']
+# Which columns to keep from the OLS output
+column_names = ['POLYGON_ID','matchesN','matchesReduced','Hydroregion_Number','Groundwater_Basin_ID','N','StartYear','EndYear','Years','Preds','Training_DGW','OLS_Intercept','OLS_Slope','OLS_Pvalue','OLS_SigDir']
 
 #************ Should not need to modify below this line *************************
 
@@ -379,6 +437,42 @@ def new_set_maker(in_list,threads):
         if i >= threads:
             i = 0
     return out_sets
+
+# Function to get static predictor layers
+# vectorStrataToAdd and rasterStrataToAdd must be lists of dictionaries, as explained above in the
+# Apply Tables section.
+def addStrata(applyGDEs, vectorStrataToAdd, rasterStrataToAdd):
+
+  # Add any strata that are in vector format
+  for strat in vectorStrataToAdd:
+    # Load collection and filter to study area
+    collection = ee.FeatureCollection(strat['assetName']).filterBounds(studyArea)
+    # Rename selected attributes
+    collection = collection.map(lambda f: f.select(strat['assetAttributes'], strat['gdeAttributes']))
+
+    # Join to apply GDEs
+    applyGDEs = spatialJoin(applyGDEs, collection, strat['gdeAttributes'])
+
+  # Add any strata that are in raster format
+  for strat in rasterStrataToAdd:
+    # Load image
+    image = ee.Image(strat['assetName']).select(strat['assetAttributes'])
+    # Get original attributes:
+    origNames = applyGDEs.first().propertyNames().getInfo()
+    # Reduce to GDE collection
+    applyGDEs = image.reduceRegions(**{\
+      'collection': applyGDEs,
+      'reducer': ee.Reducer.first(),
+      'scale': sage.scale,
+      'crs': sage.crs,
+      'crsTransform': sage.transform})
+    # Rename attributes. 
+    if len(strat['assetAttributes'] == 1):
+      applyGDEs = applyGDEs.select(origNames+['first'], origNames+[strat['gdeAttributes']])
+    else:
+      applyGDEs = applyGDEs.select(origNames+[strat['assetAttributes']], origNames+[strat['gdeAttributes']])
+
+  return applyGDEs
 
 def shortTrackTasks(credential_path = None):
 	if credential_path != None: initializeFromToken(tokens[i])

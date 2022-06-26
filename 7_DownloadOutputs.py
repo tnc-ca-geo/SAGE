@@ -56,18 +56,28 @@ for table in tables:
 
   collection = ee.FeatureCollection(table)
 
-  if sage.removeGeometry:
-    #Get rid of full geometry info to make table smaller
-    collection = collection.map(lambda f: f.setGeometry(dummyLocation))
-
+  collection = sage.addStrata(collection, sage.exportVectorStrataToAdd, sage.exportRasterStrataToAdd )
 
   description = os.path.basename(table)
   print('Exporting: ', description)
-  t = ee.batch.Export.table.toDrive(**{\
-    'collection': collection, 
-    'description': description, 
-    'folder': sage.outputPredDriveDir})
-  t.start()
+
+  if sage.removeGeometry:
+
+    propertyNames = collection.first().propertyNames().getInfo()
+    t = ee.batch.Export.table.toDrive(**{\
+      'collection': collection, 
+      'description': description, 
+      'folder': sage.outputPredDriveDir,
+      'selectors': propertyNames})
+    t.start()
+
+  else:
+
+    t = ee.batch.Export.table.toDrive(**{\
+      'collection': collection, 
+      'description': description, 
+      'folder': sage.outputPredDriveDir})
+    t.start()
 
 taskManagerLib.trackTasks()
 

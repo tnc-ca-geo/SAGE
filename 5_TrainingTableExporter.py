@@ -59,10 +59,10 @@ if sage.viewTrainingTable:
 # Get initial training GDE collection and filter
 trainingGDEs = ee.FeatureCollection(sage.trainingGDECollection)
 # Only include GDEs greater than a minimum size.
-trainingGDEs = trainingGDEs.filter(ee.Filter.gte(sage.minGDEAttribute, sage.minGDESize))
+trainingGDEs = trainingGDEs.filter(ee.Filter.gte(sage.gdeSizeAttribute, sage.minGDESize))
 # Only include shallow wells
 trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains(sage.gdeDepthAttribute, sage.gdeDepthFilterName))
-# Create a Unique ID for each GDE / well 
+# Create a Unique ID for each GDE / well combination
 trainingGDEs = trainingGDEs.map(lambda f: f.set('unique_id', f.getNumber(sage.gdeIdName).format().cat('_').cat(f.getNumber(sage.wellIdName).format())))
 
 ####################################################################################################
