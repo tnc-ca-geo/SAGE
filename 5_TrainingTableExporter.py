@@ -58,10 +58,16 @@ if sage.viewTrainingTable:
 
 # Get initial training GDE collection and filter
 trainingGDEs = ee.FeatureCollection(sage.trainingGDECollection)
+
 # Only include GDEs greater than a minimum size.
 trainingGDEs = trainingGDEs.filter(ee.Filter.gte(sage.gdeSizeAttribute, sage.minGDESize))
-# Only include shallow wells
-trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains(sage.gdeDepthAttribute, sage.gdeDepthFilterName))
+
+# Only include shallow wells, or some other defining characteristic
+if sage.filterWellTypeByAttributeOrValue == 'attribute':
+  trainingGDEs = trainingGDEs.filter(ee.Filter.stringContains(sage.wellDepthAttribute, sage.wellDepthFilterName))
+elif sage.filterWellTypeByAttributeOrValue == 'value':
+  trainingGDEs = trainingGDEs.filter(ee.Filter.And(ee.Filter.gt(sage.wellDepthAttribute, sage.wellDepthMin), ee.Filter.lt(sage.wellDepthAttribute, sage.wellDepthMax)))
+
 # Create a Unique ID for each GDE / well combination
 trainingGDEs = trainingGDEs.map(lambda f: f.set('unique_id', f.getNumber(sage.gdeIdName).format().cat('_').cat(f.getNumber(sage.wellIdName).format())))
 
@@ -84,7 +90,8 @@ for yr in years:
   toFields = ['dgw', sage.gdeIdName, sage.wellIdName]
 
   # get training GDEs for this year
-  igdesYr = trainingGDEs.select(fromFields, toFields)  
+  igdesYr = trainingGDEs.select(fromFields, toFields)
+ 
   igdesYr = igdesYr.map(lambda f: f.set('dgw',ee.Number(f.get('dgw')).float()))
 
   # Filter out any null DGW values

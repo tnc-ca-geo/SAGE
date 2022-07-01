@@ -66,9 +66,9 @@ transform = [30,0,-2361915.0,0,-30,3177735.0]
 scale = None
 
 #Specify training and model application years
-startTrainingYear = 2016 # First year of training data (i.e. depth to groundwater observations AND Landsat observations. Earliest year for Landsat = 1985)
+startTrainingYear = 1985 # First year of training data (i.e. depth to groundwater observations AND Landsat observations. Earliest year for Landsat = 1985)
 endTrainingYear = 2018 # Last year of training data
-startApplyYear = 2016 # First year to predict depth to groundwater (must have Landsat available, so minimum year = 1985)
+startApplyYear = 1985 # First year to predict depth to groundwater (must have Landsat available, so minimum year = 1985)
 endApplyYear = 2021 # Last year to predict depth to groundwater (latest full summer season)
 
 
@@ -153,8 +153,8 @@ daymetInputCollection = 'NASA/ORNL/DAYMET_V4'
 daymetStartYear = min(startApplyYear, startTrainingYear) - 1
 daymetEndYear = max(endApplyYear, endTrainingYear) - 1
 
-exportDaymet = False # Export Daymet composites to asset
-viewDaymet = True # Can visualize Daymet composites in geeView()
+exportDaymet = True # Export Daymet composites to asset
+viewDaymet = False # Can visualize Daymet composites in geeView()
 
 # Which fields to export
 daymetExportBands = ['prcp.*','srad.*','swe.*','tmax.*','tmin.*','vp.*']
@@ -174,7 +174,7 @@ viewLandTrendr = False
 # If you have more than one GEE credential available to you, this will automatically run the exports using multiple tokens
 # Credentials are usually stored in a hidden folder called '.config/earthengine' in your home directory (on both Mac and PC)
 # Credentials to use are defined above as the "tokens" variable
-landtrendrUseMultiCredentials = True
+landtrendrUseMultiCredentials = False
 
 #Which bands/indices (Landsat and Daymet) to run LandTrendr across
 landtrendrIndexList = ['blue','green','red','nir','swir1','swir2','temp','NBR','NDMI','NDVI','SAVI','EVI','brightness','greenness','wetness','tcAngleBG','tmin_mean','tmax_mean','prcp_mean','srad_mean','vp_mean']
@@ -196,20 +196,31 @@ landtrendr_run_params = { \
 #-------------------------------------------------
 #				Training and Apply Data Options
 #-------------------------------------------------
-# 
+# !!!! All Depth to Groundwater Values should be POSITIVE, reflecting the absolute value of the depth below surface !!!!!!!!!!!!
 
-#Specify parameters to filter GDEs with
+#Specify parameters to filter well data for modeling (the min and max DGW should be positive, reflecting the absolute value of the depth below surface)
 minDGW = 0 # Minimum depth to groundwater
 maxDGW = 20 # Maximum depth to groundwater
 dgwNullValue = -999.0 # How are null depth to groundwater values saved in the GDE polygons?
 
+# SAGE is built to be applied on shallow wells only. We filter out any well that is not a shallow perf. well. 
+# The attribute name for this in the California dataset is "Depth_Str",
+# and we filter to include only "Shallow: perf." wells.
+# Some datasets just have a constant "well depth" attribute instead, so there is the option to filter by a min and max value OR by an attribute string.
+# Option to filter by an attribute as described above ('attribute') or by a well depth value ('value'):
+filterWellTypeByAttributeOrValue = 'attribute'
+if filterWellTypeByAttributeOrValue == 'attribute':
+	wellDepthAttribute = 'Depth_Str' # the name of the attribute we use to find the right kind of well
+	wellDepthFilterName = 'Shallow: perf.' # the name of the kind of well we want.
+elif filterWellTypeByAttributeOrValue == 'value':
+	wellDepthAttribute = 'Well_Depth' # this is not the annual depth to groundwater value, this is the well depth, which is constant.
+	# The default values here assume that your well depth attribute is positive. If it is negative, use negative values for your thresholds.
+	wellDepthMin = 0 # min depth below ground we will keep
+	wellDepthMax = 100 # max depth below ground we will keep
+
+# Parameters for filtering GDEs
 minGDESize = 900 # Minimum size of GDE polygon (m2)
 gdeSizeAttribute = 'Shape_Area' # Name of the area (m2) attribute in the GDE polygons
-
-# SAGE is built to be applied on shallow wells only. We filter out any well that is not a shallow perf. well. The attribute name for this in the California dataset is "Depth_Str",
-# and we filter to include only "Shallow: perf." wells.
-gdeDepthAttribute = 'Depth_Str'
-gdeDepthFilterName = 'Shallow: perf.'
 
 # In Training GDEs, GDE ID Attribute Name and Well ID Attribute Name - will combine to create specific GDE/Well combination identifiers
 gdeIdName = 'POLYGON_ID'
@@ -284,7 +295,7 @@ modelRuns = [[runname, predictors],
 # If you have more than one GEE credential available to you, this will automatically run the exports using multiple tokens
 # Credentials are usually stored in a hidden folder called '.config/earthengine' in your home directory (on both Mac and PC)
 # Credentials to use are defined above as the "tokens" variable
-modelApplyUseMultiCredentials = True
+modelApplyUseMultiCredentials = False
 
 randomForestParameters = {
 	'numberOfTrees': 90, # The number of decision trees to create.

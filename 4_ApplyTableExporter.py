@@ -71,62 +71,8 @@ def getLT(ltCollection, ltBands):
 
   return outC
 
-# Function to get static predictor layers
-def addStrata(applyGDEs):
-  # groups = ee.Dictionary(applyGDEs.aggregate_histogram('Macrogroup'))
-  # names = ee.List(groups.keys())
-  # numbers = ee.List.sequence(1,names.length())
-  
-  # applyGDEs = applyGDEs.map(lambda f: f.set('Macrogroup_Number', f.get('Macrogroup')))
-  # applyGDEs = applyGDEs.remap(names, numbers, 'Macrogroup_Number')
-  
-  # biome_ecoregion = ee.FeatureCollection('projects/igde-work/igde-data/ecoregion_biome_ca_2020').filterBounds(sage.studyArea)
-  # biome_ecoregion = biome_ecoregion.map(lambda f: f.select(['BIOME','EAA_ID'],['Biome_Number','Ecoregion_Number']))
-
-  # hydroRegion = ee.FeatureCollection('projects/igde-work/igde-data/Hydrologic_Regions')
-  # hydroRegion = hydroRegion.map(lambda f: f.select(['OBJECTID'],['Hydroregion_Number']))
-
-  # gwbasin = ee.FeatureCollection('projects/igde-work/igde-data/CA_Bulletin_118_Groundwater_Basins').select(['OBJECTID'],['Groundwater_Basin_ID'])
-
-  # huc8 = ee.FeatureCollection("USGS/WBD/2017/HUC08").filterBounds(sage.studyArea)
-  # huc8 = huc8.map(lambda f: f.set('HUC08',ee.Number.parse(f.get('huc8'))))
-
-  # applyGDEs = sage.spatialJoin(applyGDEs, huc8, ['HUC08'])
-  # applyGDEs = sage.spatialJoin(applyGDEs, biome_ecoregion, ['Biome_Number','Ecoregion_Number'])
-  # applyGDEs = sage.spatialJoin(applyGDEs, hydroRegion, ['Hydroregion_Number'])
-  # applyGDEs = sage.spatialJoin(applyGDEs, gwbasin, ['Groundwater_Basin_ID'])
-
-  # Add any strata that are in vector format
-  for strat in sage.vectorStrataToAdd:
-    # Load collection and filter to study area
-    collection = ee.FeatureCollection(strat['assetName']).filterBounds(sage.studyArea)
-    # Rename selected attributes
-    collection = collection.map(lambda f: f.select(strat['assetAttributes'], strat['gdeAttributes']))
-
-    # Join to apply GDEs
-    applyGDEs = sage.spatialJoin(applyGDEs, collection, strat['gdeAttributes'])
-
-  # Add any strata that are in raster format
-  for strat in sage.rasterStrataToAdd:
-    # Load image
-    image = ee.Image(strat['assetName']).select(strat['assetAttributes'])
-    # Get original attributes:
-    origNames = applyGDEs.first().propertyNames().getInfo()
-    # Reduce to GDE collection
-    applyGDEs = image.reduceRegions(**{\
-      'collection': applyGDEs,
-      'reducer': ee.Reducer.first(),
-      'scale': sage.scale,
-      'crs': sage.crs,
-      'crsTransform': sage.transform})
-    # Rename attributes. 
-    if len(strat['assetAttributes'] == 1):
-      applyGDEs = applyGDEs.select(origNames+['first'], origNames+[strat['gdeAttributes']])
-    else:
-      applyGDEs = applyGDEs.select(origNames+[strat['assetAttributes']], origNames+[strat['gdeAttributes']])
-
-
   # Make sure all our predictors are numbers, not strings
+def formatPredictors(applyGDEs):
   predictors = [i for i in sage.predictors if i in applyGDEs.first().propertyNames().getInfo()]
   firstFeatureProperties = applyGDEs.first().getInfo()['properties']
   for predictorName in predictors:
@@ -178,8 +124,11 @@ applyGDEs = applyGDEs.filter(ee.Filter.gte(sage.gdeSizeAttribute, sage.minGDESiz
 applyGDEs = applyGDEs.map(lambda f: ee.Feature(f).dissolve(100))
 
 # Add strata (static predictor layers) to applyGDEs
-applyGDEs = addStrata(applyGDEs.limit(2))
-pdb.set_trace()
+applyGDEs = sage.addStrata(applyGDEs)
+
+# Make sure we aren't using strings in our predictor variables as this will make the model fail.
+applyGDEs = formatPredictors(applyGDEs)
+
 ####################################################################################################
 #                   Get Apply Tables
 ####################################################################################################
