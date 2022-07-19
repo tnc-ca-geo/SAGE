@@ -5,7 +5,7 @@
 ## Primary POCs
 * Primary technical contacts
   * Ian Housman - ian.housman@gmail.com
-  * Leah Campbell - lcampbell@contourgroupconsulting.com 
+  * Leah Campbell - leahs.campbell@gmail.com 
   
 * Primary manuscript author
   * Melissa Rohde - melissa.rohde@tnc.org 
@@ -16,6 +16,8 @@
 * geeViz (Python package)
 
 ## Using
+* A more detailed description about how to use this code is included in the SAGE Technical Methods Document (SAGE_Methods_Document.pdf), included in this repository.
+
 * Ensure you have Python 3 installed
   * <https://www.python.org/downloads/>
   
