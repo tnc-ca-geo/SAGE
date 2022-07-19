@@ -124,7 +124,7 @@ applyGDEs = applyGDEs.filter(ee.Filter.gte(sage.gdeSizeAttribute, sage.minGDESiz
 applyGDEs = applyGDEs.map(lambda f: ee.Feature(f).dissolve(100))
 
 # Add strata (static predictor layers) to applyGDEs
-applyGDEs = sage.addStrata(applyGDEs)
+applyGDEs = sage.addStrata(applyGDEs, sage.vectorStrataToAdd, sage.rasterStrataToAdd)
 
 # Make sure we aren't using strings in our predictor variables as this will make the model fail.
 applyGDEs = formatPredictors(applyGDEs)

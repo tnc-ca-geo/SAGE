@@ -179,7 +179,7 @@ if sage.landtrendrUseMultiCredentials:
         
 else:
 
-  sage.initializeFromToken(sage.tokens[0])
+  ee.Initialize()
   batchLTExport(**{\
     'inputCollection': joined, 
     'indexList': sage.landtrendrIndexList, 

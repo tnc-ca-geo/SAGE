@@ -48,7 +48,7 @@ else:
 	tokens = [os.path.join(token_dir, i) for i in tokens]
 
 #-------------------------------------------------
-#			Study Area, Years, and CRS/Transform/Scale
+#			Global: Study Area, Years, and CRS/Transform/Scale
 #-------------------------------------------------
 # Specify study area: Study area
 # Can be a featureCollection, feature, geometry, or state name
@@ -67,7 +67,7 @@ scale = None
 
 #Specify training and model application years
 startTrainingYear = 1985 # First year of training data (i.e. depth to groundwater observations AND Landsat observations. Earliest year for Landsat = 1985)
-endTrainingYear = 2018 # Last year of training data
+endTrainingYear = 2021 # Last year of training data
 startApplyYear = 1985 # First year to predict depth to groundwater (must have Landsat available, so minimum year = 1985)
 endApplyYear = 2021 # Last year to predict depth to groundwater (latest full summer season)
 
