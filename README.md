@@ -13,7 +13,7 @@
 ## Dependencies
 * Python 3
 * earthengine-api (Python package)
-* geeViz (Python package)
+* geeViz v2022.6.1 (Python package)
 
 ## Using
 * A more detailed description about how to use this code is included in the SAGE Technical Methods Document (SAGE_Methods_Document.pdf), included in this repository.
