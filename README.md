@@ -25,8 +25,8 @@
   * `pip install earthengine-api --upgrade`
   * `conda update -c conda-forge earthengine-api`
 
-* Ensure geeViz is installed and up-to-date
-  * `pip install geeViz --upgrade`
+* Ensure geeViz is installed
+  * `pip install geeViz==2022.6.1`
 
 * Running scripts
   * Each script is intended to run sequentially to reproduce the methods used in Rohde et al 2021.
